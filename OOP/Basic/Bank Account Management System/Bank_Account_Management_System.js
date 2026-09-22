@@ -142,6 +142,6 @@ console.log(current.getAccountInfo());
 
 console.log(BankAccount.getTotalAccount());
 
-// try { new BankAccount("123"); } catch (e) { console.log(e.name, e.message); }
-// try { acc1.withdraw(-50); } catch (e) { console.log(e.name, e.message); }
-// try { current.withdraw(5000); } catch (e) { console.log(e.name, e.message); }
+try { new BankAccount("123"); } catch (e) { console.log(e.name, e.message); }
+try { acc1.withdraw(-50); } catch (e) { console.log(e.name, e.message); }
+try { current.withdraw(5000); } catch (e) { console.log(e.name, e.message); }
