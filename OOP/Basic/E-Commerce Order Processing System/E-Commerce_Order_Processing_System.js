@@ -98,13 +98,7 @@ class Product {
     if (type === "digital")
       return new DigitalProduct(name, basePrice, stock, extra);
     if (type === "subscription")
-      return new SubscriptionProduct(
-        name,
-        basePrice,
-        stock,
-        extra,
-        extra2
-      );
+      return new SubscriptionProduct(name, basePrice, stock, extra, extra2);
     throw new ShopError("Invalid Type Input");
   }
 }
@@ -116,18 +110,12 @@ class PhysicalProduct extends Product {
     this.#weight = this.validateWaight(weight);
   }
   validateWeight(weight) {
-  if (
-    typeof weight !== "number" ||
-    !Number.isFinite(weight) ||
-    weight < 0
-  ) {
-    throw new ShopError(
-      "Weight must be a non-negative finite number"
-    );
-  }
+    if (typeof weight !== "number" || !Number.isFinite(weight) || weight < 0) {
+      throw new ShopError("Weight must be a non-negative finite number");
+    }
 
-  return weight;
-}
+    return weight;
+  }
   shippingCost() {
     let shippingCost = this.#weight * 2;
     return shippingCost;
@@ -176,32 +164,32 @@ function DigitalProduct(name, basePrice, stock, fileSize) {
 
 DigitalProduct.prototype = Object.create(Product.prototype);
 DigitalProduct.prototype.constructor = DigitalProduct;
-DigitalProduct.prototype.getFileSize = function() {
+DigitalProduct.prototype.getFileSize = function () {
   return this.fileSize;
-}
-DigitalProduct.prototype.getFinalPrice = function() {
+};
+DigitalProduct.prototype.getFinalPrice = function () {
   return this.basePrice;
-}
-DigitalProduct.prototype.getInfo = function() {
+};
+DigitalProduct.prototype.getInfo = function () {
   return `[${this.sku}] [${this.name}] [${this.getFileSize()} MB]- $[${this.basePrice}] (Stock: [${this.getStock()}])`;
-}
+};
 
 class SubscriptionProduct extends Product {
   #duration;
   #discountPercent;
   constructor(name, basePrice, stock, duration, discountPercent) {
     super(name, basePrice, stock);
-    this.#duration = this.validateDuration(duration)
-    this.#discountPercent = this.validateBasePrice(discountPercent)
+    this.#duration = this.validateDuration(duration);
+    this.#discountPercent = this.validateBasePrice(discountPercent);
   }
   validateDuration(duration) {
-    if(duration < 0) {
-        throw new ShopError("Durtion must be positive")
+    if (duration < 0) {
+      throw new ShopError("Durtion must be positive");
     }
   }
   validatePercente(percent) {
-    if(percent < 0) {
-      throw new ShopError("Percentage must be Positive")
+    if (percent < 0) {
+      throw new ShopError("Percentage must be Positive");
     }
   }
   convertPercentage() {
@@ -215,17 +203,79 @@ class SubscriptionProduct extends Product {
   }
   getFinalPrice() {
     let total = this.basePrice * this.#duration;
-    return total - this.discountPrice()
+    return total - this.discountPrice();
   }
   getInfo() {
     return `[${this.sku}] [${this.name}] [${this.#duration} Month]- $[${this.getFinalPrice()}] (Stock: [${this.getStock()}])`;
   }
 }
 
+let _orderHistory = new Set();
+let _customerId = new Set();
 function createCustomer(name, email) {
-  
+  let _name;
+  let _email;
+  let _id;
+  do {
+    id = Math.random().toString(36).slice(2, 9);
+  } while (_customerId.has(id));
+  _id = id;
+  if (name.trim().length < 3 || typeof name != "string") {
+    throw new ShopError("Invalid Name input");
+  }
+  _name = name.trim();
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(email)) {
+    throw new ShopError("Invalid Email input");
+  }
+  _email = email;
+  return {
+    getName() {
+      return _name;
+    },
+    getEmail() {
+      return _email;
+    },
+    getID() {
+      return _id;
+    },
+    setName(newName) {
+      if (typeof newName != "string" || newName.trim().length < 3) {
+        throw new ShopError("New Name must be at lear 3 char");
+      }
+      _name = newName;
+    },
+    setEmail(newEmail) {
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(newEmail)) {
+        throw new ShopError("Invalid Email input");
+      }
+      _email = newEmail;
+    },
+    addOrder(order) {
+      if (!(order instanceof Order)) {
+        throw new ShopError("Invalid Order Input");
+      }
+      for (const odr of order) {
+        if (this.#orderHistory.has(order.id)) {
+          throw new ShopError("Order already exist");
+        }
+      }
+      _orderHistory.add(order);
+      return this;
+    },
+    getOrderHistory() {
+      return [..._orderHistory];
+    },
+    getTotalSpent() {},
+    getTotalOrders() {
+      return _orderHistory.size;
+    },
+    getInfo() {
+      return `[${this.id}] [${this.name}] (${this.email}) - Orders: ${this.getTotalOrders()}`;
+    },
+  };
 }
-
 
 class Customer {
   static customerId = new Set();
@@ -235,8 +285,8 @@ class Customer {
   constructor(name, email) {
     let id;
     do {
-      id = Math.random().toString(36).slice(2,9)
-    } while(Customer.customerId.has(id));
+      id = Math.random().toString(36).slice(2, 9);
+    } while (Customer.customerId.has(id));
     Customer.customerId.add(id);
     Object.defineProperty(this, "id", {
       value: id,
@@ -253,8 +303,8 @@ class Customer {
     this.#name = this.validateName(newName);
   }
   validateName(name) {
-    if(typeof name != "string" || name.trim().length < 3) {
-      throw new ShopError("Name must be string with more then 3 charecters")
+    if (typeof name != "string" || name.trim().length < 3) {
+      throw new ShopError("Name must be string with more then 3 charecters");
     }
     return name;
   }
@@ -266,45 +316,44 @@ class Customer {
   }
   validateEmail(email) {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if(!emailRegex.test(email)) {
+    if (!emailRegex.test(email)) {
       throw new ShopError("Invalid Email input");
     }
     return email;
   }
-  addOrder(order){
-    if(!(order instanceof Order)) {
+  addOrder(order) {
+    if (!(order instanceof Order)) {
       throw new ShopError("Invalid Order Input");
     }
-    for(const odr of order) {
-      if(this.#orderHistory.has(order.id)) {
-        throw new ShopError("Order already exist")
+    for (const odr of order) {
+      if (this.#orderHistory.has(order.id)) {
+        throw new ShopError("Order already exist");
       }
     }
     this.#orderHistory.add(order);
     return this;
   }
   getOrderHistory() {
-    return [...this.#orderHistory]
+    return [...this.#orderHistory];
   }
-  getTotalSpent(){
-
-  }
+  getTotalSpent() {}
   getTotalOrders() {
     return this.#orderHistory.size;
   }
   getInfo() {
-    return `[${this.id}] [${this.name}] (${this.email}) - Orders: ${this.getTotalOrders()}`
+    return `[${this.id}] [${this.name}] (${this.email}) - Orders: ${this.getTotalOrders()}`;
   }
 }
 class Order {
   static orderIds = new Set();
   #customer;
   static #items = new Map();
-  constructor(customer){
+  #discountPercent;
+  constructor(customer,discountPercent, quantity) {
     let id;
     do {
-      id = Math.random().toString(36).slice(2,9)
-    } while(Order.orderIds.had(id));
+      id = Math.random().toString(36).slice(2, 9);
+    } while (Order.orderIds.had(id));
     Order.orderIds.add(id);
     Object.defineProperty(this, "id", {
       value: id,
@@ -312,10 +361,48 @@ class Order {
       configurable: false,
       writable: false,
     });
-    if(!(customer instanceof Customer)) {
-      throw new ShopError("Invalid Customer Input")
+    if (!(customer instanceof Customer)) {
+      throw new ShopError("Invalid Customer Input");
     }
     this.#customer = customer;
+    this.#discountPercent = this.validatePercentage(discountPercent)
+    this.quantity = quantity;
   }
+  validateQuantity(quantity) {
+    if(quantity < 0) {
+        throw new ShopError("Quantity cannot be negative")
+    }
+  }
+  validatePercentage(percentage) {
+    if(percentage < 0) {
+        throw new ShopError("Percentage cannot be Negative")
+    }
+    return percentage;
+  }
+  addItem(product, quantity){
+    if(!(product instanceof Product)) {
+        throw new ShopError("Invalid Product input");
+    }
+    if(quantity <= 0) {
+        throw new ShopError("Product quantity cannot be negative or zero")
+    }
+    if(this.getStock() < quantity || this.isInStock() !== 0) {
+        throw new ShopError("Stock is not available")
+    }
+    Order.#items.set(product, quantity);
+    this.getStock() -= quantity;
+    return this;
+  }
+  applyDiscount(percent) {
+    if(percent <= 0) {
+        throw new ShopError("Percent cannot be zero or minus value")
+    }
+    this.#discountPercent = percent;
+    return this;
+  }
+  getSubtotal() {
+    return this.getFilePrice() * this.quantity;
+  }
+  
 }
 class OrderProcessor {}
