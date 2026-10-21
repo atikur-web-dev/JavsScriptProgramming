@@ -6,27 +6,24 @@ class TaskError extends Error {
 }
 
 abstract class Task {
-  static generateIds: Set<string> = new Set();
-  static globalCounter: number = 0;
+  private static generatedIds = new Set<string>();
+  private static globalCounter = 0;
 
-  #title!: string;
-  #priority!: string;
-  #completed: boolean = false;
   readonly id!: string;
+  private _title: string;
+  private _priority: string;
+  private _completed = false;
 
   constructor(title: string, priority: string) {
     if (new.target === Task) {
-      throw new TaskError("Task is an abstract class");
+      throw new TaskError("Task is abstract");
     }
-    this.initialize(title, priority);
-  }
 
-  initialize(title: string, priority: string): void {
     let id: string;
     do {
       id = Math.random().toString(36).slice(2, 9);
-    } while (Task.generateIds.has(id));
-    Task.generateIds.add(id);
+    } while (Task.generatedIds.has(id));
+    Task.generatedIds.add(id);
 
     Object.defineProperty(this, "id", {
       value: id,
@@ -35,38 +32,27 @@ abstract class Task {
       configurable: false,
     });
 
-    this.title = title;
-    this.priority = priority;
+    this._title = this.validateTitle(title);
+    this._priority = this.validatePriority(priority);
     Task.globalCounter++;
   }
 
-  get title(): string {
-    return this.#title;
-  }
-  set title(v: string) {
-    this.#title = this.validateTitle(v);
-  }
+  get title(): string { return this._title; }
+  set title(v: string) { this._title = this.validateTitle(v); }
 
-  get priority(): string {
-    return this.#priority;
-  }
-  set priority(v: string) {
-    this.#priority = this.validatePriority(v);
-  }
+  get priority(): string { return this._priority; }
+  set priority(v: string) { this._priority = this.validatePriority(v); }
 
-  validateTitle(title: string): string {
+  private validateTitle(title: string): string {
     if (typeof title !== "string" || title.trim().length < 3) {
       throw new TaskError("Title must be at least 3 characters");
     }
     return title.trim();
   }
 
-  validatePriority(priority: string): string {
+  private validatePriority(priority: string): string {
     const valid = ["low", "medium", "high"];
-    if (
-      typeof priority !== "string" ||
-      !valid.includes(priority.toLowerCase())
-    ) {
+    if (typeof priority !== "string" || !valid.includes(priority.toLowerCase())) {
       throw new TaskError("Priority must be low, medium, or high");
     }
     return priority.toLowerCase();
@@ -74,250 +60,190 @@ abstract class Task {
 
   async complete(): Promise<this> {
     await new Promise<void>((r) => setTimeout(r, 100));
-    this.#completed = true;
+    this._completed = true;
     return this;
   }
 
-  isComplete(): "Completed" | "Not Completed" {
-    return this.#completed ? "Completed" : "Not Completed";
+  isComplete(): boolean {
+    return this._completed;
   }
 
-  static getGlobalCounter(): number {
+  getSummary(): string {
+    return `[${this.id}] [${this.title}] (${this.priority}) - [${this._completed ? "Completed" : "Not Completed"}]`;
+  }
+
+  static getTotalTasks(): number {
     return Task.globalCounter;
   }
 
-  abstract getSummary(): string;
+  static create(type: string, title: string, priority: string, extra?: string | Date): Task {
+    if (type === "simple") return new SimpleTask(title, priority);
+    if (type === "recurring") return new RecurringTask(title, priority, extra as string);
+    if (type === "deadline") return new DeadlineTask(title, priority, extra as Date | string);
+    throw new TaskError(`Unknown task type: ${type}`);
+  }
 }
 
 class SimpleTask extends Task {
   getSummary(): string {
-    return `[${this.id}] [${this.title}] (${this.priority}) - [${this.isComplete()}]`;
+    return `[${this.id}] [${this.title}] (${this.priority}) - [${this.isComplete() ? "Completed" : "Not Completed"}]`;
   }
 }
 
-type SimpleTaskClosure = {
-  getID(): string;
-  getTitle(): string;
-  getPriority(): string;
-  setTitle(v: string): void;
-  setPriority(v: string): void;
-  complete(): Promise<SimpleTaskClosure>;
-  isComplete(): "Completed" | "Not Completed";
-  getSummary(): string;
-};
+const createSimpleTaskClosure = (() => {
+  const usedIds = new Set<string>();
+  return (title: string, priority: string) => {
+    let id: string;
+    do {
+      id = Math.random().toString(36).slice(2, 9);
+    } while (usedIds.has(id));
+    usedIds.add(id);
 
-const closureIds = new Set<string>();
+    const valid = ["low", "medium", "high"];
+    if (typeof title !== "string" || title.trim().length < 3) throw new TaskError("Title must be at least 3 characters");
+    if (typeof priority !== "string" || !valid.includes(priority.toLowerCase())) throw new TaskError("Priority must be low, medium, or high");
 
-function simpleTask(title: string, priority: string): SimpleTaskClosure {
-  let id: string;
-  do {
-    id = Math.random().toString(36).slice(2, 9);
-  } while (closureIds.has(id));
-  closureIds.add(id);
+    let _title = title.trim();
+    let _priority = priority.toLowerCase();
+    let _completed = false;
 
-  const valid = ["low", "medium", "high"];
-  if (typeof title !== "string" || title.trim().length < 3) {
-    throw new TaskError("Title must be at least 3 characters");
-  }
-  if (typeof priority !== "string" || !valid.includes(priority.toLowerCase())) {
-    throw new TaskError("Priority must be low, medium, or high");
-  }
-
-  let _title = title.trim();
-  let _priority = priority.toLowerCase();
-  let _completed = false;
-
-  return {
-    getID: () => id,
-    getTitle: () => _title,
-    getPriority: () => _priority,
-    setTitle(v: string) {
-      if (typeof v !== "string" || v.trim().length < 3) {
-        throw new TaskError("Title must be at least 3 characters");
-      }
-      _title = v.trim();
-    },
-    setPriority(v: string) {
-      if (typeof v !== "string" || !valid.includes(v.toLowerCase())) {
-        throw new TaskError("Priority must be low, medium, or high");
-      }
-      _priority = v.toLowerCase();
-    },
-    async complete() {
-      await new Promise<void>((r) => setTimeout(r, 100));
-      _completed = true;
-      return this;
-    },
-    isComplete: () => (_completed ? "Completed" : "Not Completed"),
-    getSummary: () =>
-      `[${id}] [${_title}] (${_priority}) - [${_completed ? "Completed" : "Not Completed"}]`,
+    return {
+      getId: () => id,
+      getTitle: () => _title,
+      getPriority: () => _priority,
+      setTitle(v: string) {
+        if (typeof v !== "string" || v.trim().length < 3) throw new TaskError("Title must be at least 3 characters");
+        _title = v.trim();
+      },
+      async complete() { await new Promise<void>((r) => setTimeout(r, 100)); _completed = true; return this; },
+      isComplete: () => _completed,
+      getSummary: () => `[${id}] [${_title}] (${_priority}) - [${_completed ? "Completed" : "Not Completed"}]`,
+    };
   };
-}
+})();
 
-interface RecurringTask extends Task {
-  frequency: string;
-  getSummary(): string;
-}
+class RecurringTask extends Task {
+  readonly frequency: string;
 
-const RecurringTask = function (
-  this: RecurringTask,
-  title: string,
-  priority: string,
-  frequency: string,
-) {
-  Task.prototype.initialize.call(this, title, priority);
-  const valid = ["daily", "weekly", "monthly"];
-  if (
-    typeof frequency !== "string" ||
-    !valid.includes(frequency.trim().toLowerCase())
-  ) {
-    throw new TaskError("Frequency must be daily, weekly, or monthly");
+  constructor(title: string, priority: string, frequency: string) {
+    super(title, priority);
+    const valid = ["daily", "weekly", "monthly"];
+    if (typeof frequency !== "string" || !valid.includes(frequency.toLowerCase())) {
+      throw new TaskError("Frequency must be daily, weekly, or monthly");
+    }
+    this.frequency = frequency.toLowerCase();
   }
-  this.frequency = frequency.trim().toLowerCase();
-} as unknown as {
-  new (title: string, priority: string, frequency: string): RecurringTask;
-  prototype: RecurringTask;
-};
 
-RecurringTask.prototype = Object.create(Task.prototype);
-RecurringTask.prototype.constructor = RecurringTask;
-RecurringTask.prototype.getSummary = function (this: RecurringTask): string {
-  return `[${this.id}] [${this.title}] (${this.priority}) - Recurring (${this.frequency}) - [${this.isComplete()}]`;
-};
+  override getSummary(): string {
+    return `[${this.id}] [${this.title}] (${this.priority}) - Recurring (${this.frequency}) - [${this.isComplete() ? "Completed" : "Not Completed"}]`;
+  }
+}
 
 class DeadlineTask extends Task {
-  deadline: Date;
+  readonly deadline: Date;
 
-  constructor(
-    title: string,
-    priority: string,
-    deadline: Date | number | string,
-  ) {
+  constructor(title: string, priority: string, deadline: Date | string | number) {
     super(title, priority);
     const d = new Date(deadline);
-    if (Number.isNaN(d.getTime()))
-      throw new TaskError("Deadline must be a valid date");
-    if (d.getTime() < Date.now())
-      throw new TaskError("Deadline cannot be in the past");
+    if (Number.isNaN(d.getTime())) throw new TaskError("Deadline must be a valid date");
+    if (d.getTime() < Date.now()) throw new TaskError("Deadline cannot be in the past");
     this.deadline = d;
   }
 
-  getSummary(): string {
-    return `[${this.id}] [${this.title}] (${this.priority}) - Due: ${this.deadline} - [${this.isComplete()}]`;
+  override getSummary(): string {
+    return `[${this.id}] [${this.title}] (${this.priority}) - Due: ${this.deadline.toISOString().split("T")[0]} - [${this.isComplete() ? "Completed" : "Not Completed"}]`;
   }
 }
 
 class Project {
-  #taskList: Task[] = [];
-  name: string;
+  private taskList: Task[] = [];
+  readonly name: string;
 
   constructor(name: string) {
     if (typeof name !== "string" || name.trim().length === 0) {
-      throw new TaskError("Project Name Cannot be Empty");
+      throw new TaskError("Project name cannot be empty");
     }
     this.name = name.trim();
   }
 
   addTask(task: Task): this {
-    if (!(task instanceof Task)) throw new TaskError("Invalid Input Type");
-    if (this.#taskList.includes(task))
-      throw new TaskError("Task Already in the List");
-    this.#taskList.push(task);
+    if (!(task instanceof Task)) throw new TaskError("Invalid task instance");
+    if (this.taskList.includes(task)) throw new TaskError("Task already exists in project");
+    this.taskList.push(task);
     return this;
   }
 
-  removeTaskByID(id: string): boolean {
-    const before = this.#taskList.length;
-    this.#taskList = this.#taskList.filter((t) => t.id !== id);
-    return this.#taskList.length < before;
+  removeTaskById(id: string): boolean {
+    const before = this.taskList.length;
+    this.taskList = this.taskList.filter((t) => t.id !== id);
+    return this.taskList.length < before;
   }
 
-  getAllTask(): Task[] {
-    return [...this.#taskList];
-  }
-  getTotalTask(): number {
-    return this.#taskList.length;
-  }
+  getAllTasks(): Task[] { return [...this.taskList]; }
+  getTotalTasks(): number { return this.taskList.length; }
 
   findTaskById(id: string): Task {
-    const t = this.#taskList.find((t) => t.id === id);
-    if (!t) throw new TaskError("Task could not found");
+    const t = this.taskList.find((t) => t.id === id);
+    if (!t) throw new TaskError("Task not found");
     return t;
   }
 
   getIncompleteTasks(): Task[] {
-    return this.#taskList.filter((t) => t.isComplete() === "Not Completed");
+    return this.taskList.filter((t) => !t.isComplete());
   }
 
   getTasksByPriority(priority: string): Task[] {
-    if (typeof priority !== "string") throw new TaskError("Invalid input");
+    if (typeof priority !== "string") throw new TaskError("Invalid priority");
     const valid = ["low", "medium", "high"];
     const norm = priority.toLowerCase();
-    if (!valid.includes(norm))
-      throw new TaskError("Priority must be low, medium or high");
-    return this.#taskList.filter((t) => t.priority === norm);
+    if (!valid.includes(norm)) throw new TaskError("Priority must be low, medium, or high");
+    return this.taskList.filter((t) => t.priority === norm);
   }
 }
 
 class TaskManager {
-  #projects: Project[] = [];
-  #task: Map<string, Task> = new Map();
-
-  constructor() {
-    this.getAllTasks = this.getAllTasks.bind(this);
-    this.getTotalTasks = this.getTotalTasks.bind(this);
-  }
+  private projects: Project[] = [];
+  private tasks = new Map<string, Task>();
 
   registerProject(project: Project): this {
-    if (!(project instanceof Project))
-      throw new TaskError("Invalid Project Input");
-    if (this.#projects.includes(project))
-      throw new TaskError("Project already registered");
-    for (const t of project.getAllTask()) {
-      if (this.#task.has(t.id)) throw new TaskError("Id already registered");
+    if (!(project instanceof Project)) throw new TaskError("Invalid project");
+    if (this.projects.includes(project)) throw new TaskError("Project already registered");
+    for (const t of project.getAllTasks()) {
+      if (this.tasks.has(t.id)) throw new TaskError(`Task already registered: ${t.id}`);
     }
-    this.#projects.push(project);
-    for (const t of project.getAllTask()) this.#task.set(t.id, t);
+    this.projects.push(project);
+    for (const t of project.getAllTasks()) this.tasks.set(t.id, t);
     return this;
   }
 
   registerTask(task: Task, project: Project): this {
-    if (!(task instanceof Task)) throw new TaskError("Invalid Task Input");
-    if (this.#task.has(task.id)) throw new TaskError("Task already registered");
-    if (!(project instanceof Project))
-      throw new TaskError("Invalid Project Input");
-    if (!this.#projects.includes(project)) this.#projects.push(project);
+    if (!(task instanceof Task)) throw new TaskError("Invalid task");
+    if (!(project instanceof Project)) throw new TaskError("Invalid project");
+    if (this.tasks.has(task.id)) throw new TaskError(`Task already registered: ${task.id}`);
+    if (!this.projects.includes(project)) this.projects.push(project);
     project.addTask(task);
-    this.#task.set(task.id, task);
+    this.tasks.set(task.id, task);
     return this;
   }
 
   unregisterTask(id: string): Task {
-    const t = this.#task.get(id);
-    if (!t) throw new TaskError("Task could not found");
-    this.#task.delete(id);
-    for (const p of this.#projects) p.removeTaskByID(id);
+    const t = this.tasks.get(id);
+    if (!t) throw new TaskError("Task not found");
+    this.tasks.delete(id);
+    for (const p of this.projects) p.removeTaskById(id);
     return t;
   }
 
-  getTotalTasks(): number {
-    return this.#task.size;
-  }
+  getTotalTasks(): number { return this.tasks.size; }
 
-  async getAllTasks(): Promise<Task[]> {
-    queueMicrotask(() => console.log("microtask: inside getAllTasks"));
-    await new Promise<void>((r) => setTimeout(r, 0));
-    console.log("macrotask: after setTimeout in getAllTasks");
-    return [...this.#task.values()];
-  }
+  getAllTasks(): Task[] { return [...this.tasks.values()]; }
 
   findTaskById(id: string): Task {
-    const t = this.#task.get(id);
-    if (!t) throw new TaskError("Task Could not found");
+    const t = this.tasks.get(id);
+    if (!t) throw new TaskError("Task not found");
     return t;
   }
 
-  getAllProjects(): Project[] {
-    return [...this.#projects];
-  }
+  getAllProjects(): Project[] { return [...this.projects]; }
 }
+
