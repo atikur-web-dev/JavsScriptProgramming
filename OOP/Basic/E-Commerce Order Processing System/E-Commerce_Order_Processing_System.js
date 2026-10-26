@@ -152,15 +152,15 @@ class PhysicalProduct extends Product {
 // }
 
 // Prototype Version
-function DigitalProduct(name, basePrice, stock, fileSize) {
-  Product.call(this,name,basePrice,stock);
-  validateFilesize(fileSize) {
-    if(fileSize < 0) {
-      throw new ShopError("File size must me positive")
-    }
-    this.fileSize = fileSize
-  }
-}
+// function DigitalProduct(name, basePrice, stock, fileSize) {
+//   Product.call(this,name,basePrice,stock);
+//   validateFilesize(fileSize) {
+//     if(fileSize < 0) {
+//       throw new ShopError("File size must me positive")
+//     }
+//     this.fileSize = fileSize
+//   }
+// }
 
 DigitalProduct.prototype = Object.create(Product.prototype);
 DigitalProduct.prototype.constructor = DigitalProduct;
