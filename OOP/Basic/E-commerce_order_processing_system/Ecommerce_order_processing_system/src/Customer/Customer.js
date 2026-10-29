@@ -31,7 +31,7 @@ export class Customer {
   validateName(name) {
     if (typeof name != "string" || name.trim().length < 3) {
       throw new ShopError(
-        "Name must be string and contain at least 3 Charecters",
+        "Name must be string and contain at least 3 Char",
       );
     }
     return name;
