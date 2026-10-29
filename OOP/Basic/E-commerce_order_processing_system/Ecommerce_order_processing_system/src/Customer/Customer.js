@@ -63,6 +63,11 @@ export class Customer {
   getTotalOrder() {
     return this.#orderHistory.length;
   }
+  getTotalSpent() {
+    return this.#orderHistory
+      .filter((o) => o.status != "cancelled")
+      .reduce((sum, o) => sum + o.getTotal(), 0);
+  }
   getInfo() {
     return `[${this.id}] [${this.name}] ([${this.email}]) - Orders: [${this.getTotalOrder()}]`;
   }
